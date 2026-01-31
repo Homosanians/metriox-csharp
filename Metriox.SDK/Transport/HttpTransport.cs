@@ -20,7 +20,7 @@ public class HttpTransport : ITransport
 
         _ingestEndpoint = ingestEndpoint != null ? ingestEndpoint : new Uri($"https://ingest.metriox.com");
         
-        _ingestTelegramEndpoint = new Uri(_ingestEndpoint, "/telegram");
+        _ingestTelegramEndpoint = new Uri(_ingestEndpoint, "/tg");
     }
     
     public async Task<BotEventsResponse> SendTelegram(BotEventsRequest request, CancellationToken ct)
