@@ -1,0 +1,65 @@
+name: CI and Publish NuGet
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build (PR + main)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      # Optional: enable if you have tests
+      # - name: Test
+      #   run: dotnet test -c Release --no-build
+
+      - name: Pack
+        run: dotnet pack -c Release --no-build -o ./artifacts
+
+      - name: Upload nupkgs
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkgs
+          path: ./artifacts/*.nupkg
+
+  publish:
+    name: Publish (main only)
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Download nupkgs
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkgs
+          path: ./artifacts
+
+      - name: Publish to NuGet
+        run: dotnet nuget push "./artifacts/*.nupkg" \
+          --api-key "${{ secrets.NUGET_API_KEY }}" \
+          --source "https://api.nuget.org/v3/index.json" \
+          --skip-duplicate

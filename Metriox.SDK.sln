@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Metriox.SDK", "Metriox.SDK\Metriox.SDK.csproj", "{E9009345-052B-4466-84C9-886C2DE07424}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Metriox.SDK.Telegram", "Metriox.SDK.Telegram\Metriox.SDK.Telegram.csproj", "{B6772B3D-A8A7-40DE-9304-521D47704A94}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{E9009345-052B-4466-84C9-886C2DE07424}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E9009345-052B-4466-84C9-886C2DE07424}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E9009345-052B-4466-84C9-886C2DE07424}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B6772B3D-A8A7-40DE-9304-521D47704A94}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B6772B3D-A8A7-40DE-9304-521D47704A94}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B6772B3D-A8A7-40DE-9304-521D47704A94}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B6772B3D-A8A7-40DE-9304-521D47704A94}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
