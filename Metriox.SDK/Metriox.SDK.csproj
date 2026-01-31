@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <PackageId>Metriox.Analytics</PackageId>
+        <Version>1.0.0</Version>
+        <Authors>Alexander Emelyanov</Authors>
+        <Company>Metriox</Company>
+        <Description>Development kit for Metriox analytics service.</Description>
+
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+
+        <RepositoryUrl>https://github.com/Homosanians/metriox-csharp</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    </PropertyGroup>
+    
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+    
+</Project>
