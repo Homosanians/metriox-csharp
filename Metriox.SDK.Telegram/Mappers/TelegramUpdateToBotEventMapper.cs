@@ -80,16 +80,37 @@ public sealed class TelegramUpdateToBotEventMapper
             case UpdateType.Message:
             {
                 var m = u.Message!;
-                eventType = "message";
-                eventName = m.Text is not null ? "text_message" : "message";
+
+                // Captioned media (a photo/video/document sent with only a caption, no separate
+                // text message) used to fall through with an empty body — the media chip rendered
+                // but whatever was actually said was silently dropped.
+                text = m.Text ?? m.Caption;
+
+                if (m.SuccessfulPayment is { } sp)
+                {
+                    eventType = "payment";
+                    eventName = "successful_payment";
+
+                    propsString["tg.currency"] = sp.Currency;
+                    propsLong["tg.total_amount"] = sp.TotalAmount;
+                    propsString["tg.invoice_payload"] = sp.InvoicePayload;
+                    propsString["tg.telegram_payment_charge_id"] = sp.TelegramPaymentChargeId;
+                    propsString["tg.provider_payment_charge_id"] = sp.ProviderPaymentChargeId;
+
+                    if (!string.IsNullOrEmpty(sp.ShippingOptionId))
+                        propsString["tg.shipping_option_id"] = sp.ShippingOptionId!;
+                }
+                else
+                {
+                    eventType = "message";
+                    eventName = text is not null ? "text_message" : "message";
+                }
 
                 if (m.Date != default)
                     eventDate = m.Date;
 
-                text = m.Text;
-
                 _ = TryAddCommandProps(text, propsString);
-                
+
                 AddMessageAnalytics(m, updateType, propsString, propsLong, ref propsBool);
 
                 if (m.From?.Id != null)
@@ -116,7 +137,7 @@ public sealed class TelegramUpdateToBotEventMapper
                 if (m.Date != default)
                     eventDate = m.Date;
 
-                text = m.Text;
+                text = m.Text ?? m.Caption;
 
                 _ = TryAddCommandProps(text, propsString);
 
@@ -138,7 +159,7 @@ public sealed class TelegramUpdateToBotEventMapper
                 if (m.Date != default)
                     eventDate = m.Date;
 
-                text = m.Text;
+                text = m.Text ?? m.Caption;
 
                 _ = TryAddCommandProps(text, propsString);
 
@@ -160,7 +181,7 @@ public sealed class TelegramUpdateToBotEventMapper
                 if (m.Date != default)
                     eventDate = m.Date;
 
-                text = m.Text;
+                text = m.Text ?? m.Caption;
 
                 _ = TryAddCommandProps(text, propsString);
 
@@ -266,6 +287,9 @@ public sealed class TelegramUpdateToBotEventMapper
                 propsString["tg.currency"] = pq.Currency;
                 propsLong["tg.total_amount"] = pq.TotalAmount;
                 propsString["tg.invoice_payload"] = pq.InvoicePayload;
+
+                if (!string.IsNullOrEmpty(pq.ShippingOptionId))
+                    propsString["tg.shipping_option_id"] = pq.ShippingOptionId!;
 
                 break;
             }
@@ -470,7 +494,7 @@ public sealed class TelegramUpdateToBotEventMapper
                 if (m.Date != default)
                     eventDate = m.Date;
 
-                text = m.Text;
+                text = m.Text ?? m.Caption;
 
                 _ = TryAddCommandProps(text, propsString);
 
@@ -492,7 +516,7 @@ public sealed class TelegramUpdateToBotEventMapper
                 if (m.Date != default)
                     eventDate = m.Date;
 
-                text = m.Text;
+                text = m.Text ?? m.Caption;
 
                 _ = TryAddCommandProps(text, propsString);
 
