@@ -46,8 +46,16 @@ public sealed class TelegramUpdateToBotEventMapper
 
         var now = receivedAtUtc ?? DateTimeOffset.UtcNow;
 
-        // Deterministic eventId for idempotency: stable for (bot, update_id)
-        var eventId = DeterministicGuid($"tg:update:{platformBotId}:{u.Id}");
+        // Deterministic eventId from natural Telegram coordinates (chat + message id, or Telegram's own
+        // query id), so the SAME event captured by Metriox's MTProto worker gets the SAME id and the two
+        // captures are one event rather than two rows.
+        //
+        // The old key was tg:update:{bot}:{update_id}, which could never match: update_id exists only in
+        // the Bot-API getUpdates/webhook stream, MTProto has no per-update id at all. Update types with
+        // no shared coordinate (membership, boosts, business connections) still fall back to it — for
+        // those it is idempotency for this producer only, which is the most that is available.
+        var eventId = TelegramEventIdentity.Uuid5(
+            TelegramEventIdentity.ForUpdate(u) ?? $"tg:update:{platformBotId}:{u.Id}");
 
         const string source = "tg";
         const string eventOrigin = "platform";
@@ -680,12 +688,24 @@ public sealed class TelegramUpdateToBotEventMapper
         if (m.MessageThreadId is int tid)
             propsLong["tg.message_thread_id"] = tid;
 
-        // --- Entities summary ---
+        // --- Direction ---
+        // The canonical "who sent this". A message the Bot API delivers is by definition not the bot's own
+        // send (the API never reports those), so an observed message is inbound. The bot's own sends are
+        // reported separately via TelegramOutgoingMessageMapper / the auto-capturing client.
+        propsString["tg.direction"] = "inbound";
+
+        // --- Entities ---
         var entities = m.Entities;
         var captionEntities = m.CaptionEntities;
 
         propsLong["tg.entities_count"] = entities?.Length ?? 0;
         propsLong["tg.caption_entities_count"] = captionEntities?.Length ?? 0;
+
+        // The spans themselves, not just how many: Telegram sends plain text plus offsets, so these are
+        // the only way bold text and inline links can be rendered rather than merely counted.
+        var entitiesJson = MessageEntitySerializer.ToCompactJson(entities ?? captionEntities);
+        if (entitiesJson is not null)
+            propsString["tg.entities"] = entitiesJson;
 
         pb["tg.has_bot_command_entity"] = HasEntityType(entities, MessageEntityType.BotCommand)
                                           || HasEntityType(captionEntities, MessageEntityType.BotCommand);

@@ -47,8 +47,12 @@ public static class TelegramOutgoingMessageMapper
             ["tg.chat_id"] = sent.Chat.Id
         };
 
-        // Drives the transcript's direction (bot -> user) via ConversationClassifier without the
-        // worker-only is_outgoing flag.
+        // The canonical, producer-independent answer to "who sent this". The server writes the same
+        // field from the MTProto worker's is_outgoing flag, so a transcript no longer has to know which
+        // producer captured the row to lay the bubble out.
+        propsString["tg.direction"] = "outbound";
+
+        // Still sent for older servers, whose ConversationClassifier reads this rather than tg.direction.
         var propsBool = new Dictionary<string, bool>(capacity: 1)
         {
             ["tg.from_is_bot"] = true
@@ -58,10 +62,21 @@ public static class TelegramOutgoingMessageMapper
         if (keyboard is not null)
             propsString["tg.inline_keyboard"] = keyboard;
 
+        // Formatting spans of the bot's own message, so its bold text and links render in the transcript
+        // rather than arriving as flat text.
+        var entities = MessageEntitySerializer.ToCompactJson(sent.Entities ?? sent.CaptionEntities);
+        if (entities is not null)
+            propsString["tg.entities"] = entities;
+
         return new BotEvent
         {
-            // Stable per sent message, so an accidental re-emit dedupes rather than duplicates.
-            EventId = DeterministicGuid($"tg:outmsg:{platformBotId}:{sent.Chat.Id}:{sent.Id}"),
+            // Natural Telegram coordinates, matching what Metriox's MTProto worker derives for the same
+            // message -- so if both capture it, it is ONE event. An edit is keyed by its edit time so it
+            // does not collapse onto the original send.
+            EventId = TelegramEventIdentity.Uuid5(
+                sent.EditDate is { } editedAt
+                    ? TelegramEventIdentity.MessageEdit(sent.Chat.Id, sent.Id, TelegramEventIdentity.ToUnixSeconds(editedAt))
+                    : TelegramEventIdentity.Message(sent.Chat.Id, sent.Id)),
             Source = "tg",
             PlatformBotId = platformBotId,
             // In a private chat the chat id is the user id, so the outgoing bubble aligns with that
@@ -77,7 +92,4 @@ public static class TelegramOutgoingMessageMapper
             PropsBool = propsBool
         };
     }
-
-    private static Guid DeterministicGuid(string input)
-        => new(MD5.HashData(Encoding.UTF8.GetBytes(input)));
 }
