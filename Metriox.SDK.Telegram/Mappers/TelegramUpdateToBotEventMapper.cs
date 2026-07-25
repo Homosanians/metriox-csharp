@@ -433,8 +433,24 @@ public sealed class TelegramUpdateToBotEventMapper
                 propsLong["tg.chat_id"] = mr.Chat.Id;
                 propsLong["tg.message_id"] = mr.MessageId;
 
-                // Keep it lightweight: store counts as strings if needed; reaction objects vary
-                propsString["tg.reaction_change"] = "updated";
+                // WHICH reaction, and in which direction. Both lists used to be discarded and the change
+                // hardcoded to "updated" ("reaction objects vary"), so a reaction event could not answer
+                // the only interesting question about it.
+                var mrCurrent = MessageReactionSerializer.Map(mr.NewReaction);
+                var mrPrevious = MessageReactionSerializer.Map(mr.OldReaction);
+                var mrRemoved = MessageReactionSerializer.Removed(mrPrevious, mrCurrent);
+
+                propsString["tg.reaction_change"] = MessageReactionSerializer.ChangeOf(mrPrevious, mrCurrent);
+                propsLong["tg.reaction_count_items"] = mrCurrent.Count;
+
+                // On a removal `current` is empty, so name what was taken away rather than sending no
+                // scalar at all. Matches Metriox's MTProto worker exactly.
+                if (MessageReactionSerializer.PrimaryToken(mrCurrent.Count > 0 ? mrCurrent : mrRemoved) is { } token)
+                    propsString["tg.reaction_emoji"] = token;
+                if (MessageReactionSerializer.Serialize(mrCurrent) is { } mrJson)
+                    propsString["tg.reactions"] = mrJson;
+                if (MessageReactionSerializer.Serialize(mrRemoved) is { } mrRemovedJson)
+                    propsString["tg.reactions_removed"] = mrRemovedJson;
 
                 break;
             }
@@ -449,7 +465,18 @@ public sealed class TelegramUpdateToBotEventMapper
 
                 propsLong["tg.chat_id"] = mrc.Chat.Id;
                 propsLong["tg.message_id"] = mrc.MessageId;
-                propsLong["tg.reaction_count_items"] = mrc.Reactions?.Length ?? 0;
+
+                // Aggregate totals: no previous state exists on this update, so "updated" is the honest
+                // change value rather than a guess, and each reaction carries its user count.
+                var mrcTotals = MessageReactionSerializer.Map(mrc.Reactions);
+
+                propsString["tg.reaction_change"] = MessageReactionSerializer.ChangeUpdated;
+                propsLong["tg.reaction_count_items"] = mrcTotals.Count;
+
+                if (MessageReactionSerializer.PrimaryToken(mrcTotals) is { } mrcToken)
+                    propsString["tg.reaction_emoji"] = mrcToken;
+                if (MessageReactionSerializer.Serialize(mrcTotals) is { } mrcJson)
+                    propsString["tg.reactions"] = mrcJson;
 
                 break;
             }
