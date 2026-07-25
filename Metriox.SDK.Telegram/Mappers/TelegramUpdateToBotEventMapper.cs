@@ -149,11 +149,24 @@ public sealed class TelegramUpdateToBotEventMapper
 
                 _ = TryAddCommandProps(text, propsString);
 
+                // An edit is a message and carries everything a message does. This call was missing, so an
+                // edited message arrived with only chat_id/chat_type and no tg.message_id, tg.direction,
+                // tg.entities, tg.message_type, tg.text_len or reply/thread info — second-class data for
+                // the same content. AddMessageAnalytics already special-cases the Edited* update types
+                // (see editedByUpdateType), so it was written expecting this call site to exist.
+                AddMessageAnalytics(m, updateType, propsString, propsLong, ref propsBool);
+
                 if (m.From?.Id != null)
                     platformUserId = m.From.Id.ToString(CultureInfo.InvariantCulture);
 
                 propsLong["tg.chat_id"] = m.Chat.Id;
                 propsString["tg.chat_type"] = m.Chat.Type.ToString();
+
+                if (!string.IsNullOrEmpty(m.Chat.Username))
+                    propsString["tg.chat_username"] = m.Chat.Username!;
+
+                if (!string.IsNullOrEmpty(m.From?.Username))
+                    propsString["tg.from_username"] = m.From.Username!;
 
                 break;
             }
@@ -170,6 +183,9 @@ public sealed class TelegramUpdateToBotEventMapper
                 text = m.Text ?? m.Caption;
 
                 _ = TryAddCommandProps(text, propsString);
+
+                // Same omission as the edited-message branch: a channel post is a message.
+                AddMessageAnalytics(m, updateType, propsString, propsLong, ref propsBool);
 
                 propsLong["tg.chat_id"] = m.Chat.Id;
                 propsString["tg.chat_type"] = m.Chat.Type.ToString();
@@ -192,6 +208,8 @@ public sealed class TelegramUpdateToBotEventMapper
                 text = m.Text ?? m.Caption;
 
                 _ = TryAddCommandProps(text, propsString);
+
+                AddMessageAnalytics(m, updateType, propsString, propsLong, ref propsBool);
 
                 propsLong["tg.chat_id"] = m.Chat.Id;
                 propsString["tg.chat_type"] = m.Chat.Type.ToString();
@@ -506,11 +524,21 @@ public sealed class TelegramUpdateToBotEventMapper
 
                 _ = TryAddCommandProps(text, propsString);
 
+                AddMessageAnalytics(m, updateType, propsString, propsLong, ref propsBool);
+
                 if (m.From?.Id != null)
                     platformUserId = m.From.Id.ToString(CultureInfo.InvariantCulture);
 
                 propsLong["tg.chat_id"] = m.Chat.Id;
                 propsString["tg.chat_type"] = m.Chat.Type.ToString();
+
+                // Reported for ordinary messages but not for business ones, so the same person in the same
+                // chat looked less identified purely because the message arrived over a business connection.
+                if (!string.IsNullOrEmpty(m.Chat.Username))
+                    propsString["tg.chat_username"] = m.Chat.Username!;
+
+                if (!string.IsNullOrEmpty(m.From?.Username))
+                    propsString["tg.from_username"] = m.From.Username!;
 
                 break;
             }
@@ -528,11 +556,19 @@ public sealed class TelegramUpdateToBotEventMapper
 
                 _ = TryAddCommandProps(text, propsString);
 
+                AddMessageAnalytics(m, updateType, propsString, propsLong, ref propsBool);
+
                 if (m.From?.Id != null)
                     platformUserId = m.From.Id.ToString(CultureInfo.InvariantCulture);
 
                 propsLong["tg.chat_id"] = m.Chat.Id;
                 propsString["tg.chat_type"] = m.Chat.Type.ToString();
+
+                if (!string.IsNullOrEmpty(m.Chat.Username))
+                    propsString["tg.chat_username"] = m.Chat.Username!;
+
+                if (!string.IsNullOrEmpty(m.From?.Username))
+                    propsString["tg.from_username"] = m.From.Username!;
 
                 break;
             }
