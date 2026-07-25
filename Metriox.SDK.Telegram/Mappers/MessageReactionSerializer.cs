@@ -94,8 +94,13 @@ public static class MessageReactionSerializer
     }
 
     /// <summary>
-    /// Compact JSON — <c>[{ "t": kind, "e": emoji?, "i": customEmojiId?, "c": count? }]</c> — or
-    /// <c>null</c> when there is nothing to send.
+    /// Compact JSON — <c>[{ "type": kind, "emoji": …?, "custom_emoji_id": …?, "total_count": …? }]</c> —
+    /// or <c>null</c> when there is nothing to send.
+    ///
+    /// <para>The keys are the Bot-API field names (<c>ReactionType.type</c>/<c>.emoji</c>/
+    /// <c>.custom_emoji_id</c>, <c>ReactionCount.total_count</c>). They were single letters
+    /// (<c>t</c>/<c>e</c>/<c>i</c>/<c>c</c>) before 2026-07-26 — Metriox still accepts that spelling on
+    /// read, so an older SDK build keeps working, but new sends should use this one.</para>
     /// </summary>
     public static string? Serialize(IEnumerable<Reaction>? reactions)
     {
@@ -111,10 +116,10 @@ public static class MessageReactionSerializer
             foreach (var r in kept)
             {
                 w.WriteStartObject();
-                w.WriteString("t", r.Kind);
-                if (!string.IsNullOrEmpty(r.Emoji)) w.WriteString("e", r.Emoji);
-                if (!string.IsNullOrEmpty(r.CustomEmojiId)) w.WriteString("i", r.CustomEmojiId);
-                if (r.Count is { } c) w.WriteNumber("c", c);
+                w.WriteString("type", r.Kind);
+                if (!string.IsNullOrEmpty(r.Emoji)) w.WriteString("emoji", r.Emoji);
+                if (!string.IsNullOrEmpty(r.CustomEmojiId)) w.WriteString("custom_emoji_id", r.CustomEmojiId);
+                if (r.Count is { } c) w.WriteNumber("total_count", c);
                 w.WriteEndObject();
             }
             w.WriteEndArray();

@@ -1,4 +1,4 @@
-using Metriox.SDK.Telegram.Mappers;
+﻿using Metriox.SDK.Telegram.Mappers;
 using System.Text.Json;
 using Telegram.Bot.Types;
 using Xunit;
@@ -106,7 +106,7 @@ public class MessageReactionSerializerTests
         // non-ASCII, and hardcoding the surrogate hex here would pin the escape's letter case rather than
         // anything meaningful. What must not drift is the shape.
         Assert.Equal(
-            $$"""[{"t":"emoji","e":{{JsonSerializer.Serialize("👍")}}},{"t":"custom_emoji","i":"5361675167"}]""",
+            $$"""[{"type":"emoji","emoji":{{JsonSerializer.Serialize("👍")}}},{"type":"custom_emoji","custom_emoji_id":"5361675167"}]""",
             json);
     }
 
@@ -134,7 +134,7 @@ public class MessageReactionSerializerTests
         }));
 
         Assert.Equal(
-            $$"""[{"t":"emoji","e":{{JsonSerializer.Serialize("🔥")}},"c":11}]""",
+            $$"""[{"type":"emoji","emoji":{{JsonSerializer.Serialize("🔥")}},"total_count":11}]""",
             json);
     }
 
@@ -150,7 +150,7 @@ public class MessageReactionSerializerTests
             MessageReactionSerializer.Map(new[] { Emoji("👍") }))!;
 
         using var doc = System.Text.Json.JsonDocument.Parse(json);
-        Assert.Equal("👍", doc.RootElement[0].GetProperty("e").GetString());
+        Assert.Equal("👍", doc.RootElement[0].GetProperty("emoji").GetString());
     }
 
     [Fact]
@@ -185,7 +185,7 @@ public class MessageReactionSerializerTests
 
         var json = MessageReactionSerializer.Serialize(MessageReactionSerializer.Map(many))!;
 
-        Assert.Equal(MessageReactionSerializer.MaxReactions, json.Split("{\"t\":").Length - 1);
+        Assert.Equal(MessageReactionSerializer.MaxReactions, json.Split("{\"type\":").Length - 1);
     }
 
     // ---- Vocabulary pinned to the backend's ----

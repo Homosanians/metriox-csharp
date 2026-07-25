@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Metriox.SDK.Telegram.Mappers;
 using Telegram.Bot.Types.ReplyMarkups;
 
@@ -32,10 +32,10 @@ public class InlineKeyboardSerializerTests
         var arr = Parse(InlineKeyboardSerializer.ToCompactJson(markup));
 
         Assert.Equal(2, arr.GetArrayLength());
-        Assert.Equal("💰 Partner", arr[0].GetProperty("t").GetString());
-        Assert.Equal("menu_root", arr[0].GetProperty("d").GetString());
+        Assert.Equal("💰 Partner", arr[0].GetProperty("text").GetString());
+        Assert.Equal("menu_root", arr[0].GetProperty("callback_data").GetString());
         Assert.False(arr[0].TryGetProperty("u", out _));
-        Assert.Equal("settings", arr[1].GetProperty("d").GetString());
+        Assert.Equal("settings", arr[1].GetProperty("callback_data").GetString());
     }
 
     [Fact]
@@ -49,8 +49,8 @@ public class InlineKeyboardSerializerTests
         var arr = Parse(InlineKeyboardSerializer.ToCompactJson(markup));
 
         Assert.Single(arr.EnumerateArray());
-        Assert.Equal("Open", arr[0].GetProperty("t").GetString());
-        Assert.Equal("https://example.com", arr[0].GetProperty("u").GetString());
+        Assert.Equal("Open", arr[0].GetProperty("text").GetString());
+        Assert.Equal("https://example.com", arr[0].GetProperty("url").GetString());
         Assert.False(arr[0].TryGetProperty("d", out _));
     }
 
@@ -69,8 +69,8 @@ public class InlineKeyboardSerializerTests
         var arr = Parse(InlineKeyboardSerializer.ToCompactJson(markup));
 
         Assert.Equal(2, arr.GetArrayLength());
-        Assert.Equal("https://example.com", arr[0].GetProperty("u").GetString());
-        Assert.Equal("cb", arr[1].GetProperty("d").GetString());
+        Assert.Equal("https://example.com", arr[0].GetProperty("url").GetString());
+        Assert.Equal("cb", arr[1].GetProperty("callback_data").GetString());
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class InlineKeyboardSerializerTests
 
         var arr = Parse(InlineKeyboardSerializer.ToCompactJson(markup));
 
-        Assert.Equal(new[] { "A", "B" }, arr.EnumerateArray().Select(e => e.GetProperty("t").GetString()).ToArray());
+        Assert.Equal(new[] { "A", "B" }, arr.EnumerateArray().Select(e => e.GetProperty("text").GetString()).ToArray());
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class InlineKeyboardSerializerTests
         var arr = Parse(InlineKeyboardSerializer.ToCompactJson(markup));
 
         Assert.Single(arr.EnumerateArray());
-        Assert.Equal("cb", arr[0].GetProperty("d").GetString());
+        Assert.Equal("cb", arr[0].GetProperty("callback_data").GetString());
     }
 
     [Fact]

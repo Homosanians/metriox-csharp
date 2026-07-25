@@ -1,4 +1,4 @@
-using Metriox.SDK;
+﻿using Metriox.SDK;
 using Metriox.SDK.Telegram;
 using Metriox.SDK.Telegram.Mappers;
 using Metriox.SDK.Transport;
@@ -100,7 +100,7 @@ public class MessageEntitySerializerTests
             new MessageEntity { Type = MessageEntityType.TextLink, Offset = 6, Length = 4, Url = "https://metriox.com" }
         });
 
-        Assert.Equal("[{\"t\":\"bold\",\"o\":0,\"l\":5},{\"t\":\"text_link\",\"o\":6,\"l\":4,\"u\":\"https://metriox.com\"}]", json);
+        Assert.Equal("[{\"type\":\"bold\",\"offset\":0,\"length\":5},{\"type\":\"text_link\",\"offset\":6,\"length\":4,\"url\":\"https://metriox.com\"}]", json);
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public class MessageEntitySerializerTests
 
         var json = MessageEntitySerializer.ToCompactJson(many)!;
 
-        Assert.Equal(MessageEntitySerializer.MaxSpans, json.Split("{\"t\"").Length - 1);
+        Assert.Equal(MessageEntitySerializer.MaxSpans, json.Split("{\"type\"").Length - 1);
     }
 
     [Fact]
@@ -144,7 +144,7 @@ public class MessageEntitySerializerTests
 
         var ev = TelegramOutgoingMessageMapper.ToBotEvent(sent, "mybot");
 
-        Assert.Equal("[{\"t\":\"bold\",\"o\":0,\"l\":4}]", ev.PropsString?["tg.entities"]);
+        Assert.Equal("[{\"type\":\"bold\",\"offset\":0,\"length\":4}]", ev.PropsString?["tg.entities"]);
     }
 }
 

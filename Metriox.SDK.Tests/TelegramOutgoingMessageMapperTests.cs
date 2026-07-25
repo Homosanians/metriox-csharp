@@ -39,7 +39,7 @@ public class TelegramOutgoingMessageMapperTests
         Assert.True(ev.PropsBool!["tg.from_is_bot"]); // renders as bot -> user
         Assert.Equal(42, ev.PropsLong!["tg.message_id"]);
         Assert.Equal(777, ev.PropsLong!["tg.chat_id"]);
-        Assert.Contains("\"d\":\"buy\"", ev.PropsString!["tg.inline_keyboard"]);
+        Assert.Contains("\"callback_data\":\"buy\"", ev.PropsString!["tg.inline_keyboard"]);
     }
 
     [Fact]

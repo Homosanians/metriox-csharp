@@ -12,9 +12,14 @@ namespace Metriox.SDK.Telegram.Mappers;
 /// own sends in-process.
 ///
 /// <para>The shape matches the worker's byte-for-byte: a flat, ordered array where a callback button
-/// keeps its payload (<c>d</c>) and a url button keeps its target (<c>u</c>); both keep their label
-/// (<c>t</c>). Other button kinds (switch-inline, web-app, pay, login, …) carry neither a callback
-/// payload nor a url to surface, so they are skipped. Rows are flattened in order.</para>
+/// keeps its payload (<c>callback_data</c>) and a url button keeps its target (<c>url</c>); both keep
+/// their label (<c>text</c>). Other button kinds (switch-inline, web-app, pay, login, …) carry neither a
+/// callback payload nor a url to surface, so they are skipped. Rows are flattened in order.</para>
+///
+/// <para>The keys are the Bot-API <see cref="InlineKeyboardButton"/> field names, so the value reads as
+/// itself in a props inspector. They were single letters (<c>t</c>/<c>d</c>/<c>u</c>) before 2026-07-26 —
+/// Metriox still accepts that spelling on read, so an older SDK build keeps working, but new sends should
+/// use this one.</para>
 /// </summary>
 public static class InlineKeyboardSerializer
 {
@@ -59,7 +64,7 @@ public static class InlineKeyboardSerializer
     }
 
     private sealed record Button(
-        [property: JsonPropertyName("t")] string Text,
-        [property: JsonPropertyName("d")] string? Data = null,
-        [property: JsonPropertyName("u")] string? Url = null);
+        [property: JsonPropertyName("text")] string Text,
+        [property: JsonPropertyName("callback_data")] string? Data = null,
+        [property: JsonPropertyName("url")] string? Url = null);
 }

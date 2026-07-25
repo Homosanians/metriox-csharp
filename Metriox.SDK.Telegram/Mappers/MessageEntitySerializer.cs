@@ -7,7 +7,11 @@ namespace Metriox.SDK.Telegram.Mappers;
 
 /// <summary>
 /// Serializes a message's formatting spans into the canonical <c>tg.entities</c> wire shape:
-/// <c>[{ "t": type, "o": offset, "l": length, "u": url? }]</c>, one compact JSON string.
+/// <c>[{ "type": …, "offset": …, "length": …, "url": …? }]</c>, one compact JSON string.
+///
+/// <para>The keys are the Bot-API <see cref="MessageEntity"/> field names. They were single letters
+/// (<c>t</c>/<c>o</c>/<c>l</c>/<c>u</c>) before 2026-07-26 — Metriox still accepts that spelling on read,
+/// so an older SDK build keeps working, but new sends should use this one.</para>
 ///
 /// <para>Telegram never sends formatted text — it sends plain text plus these offset/length spans — so
 /// without them Metriox cannot render a bold word or an inline link at all, only count that some
@@ -49,11 +53,11 @@ public static class MessageEntitySerializer
                 if (count == MaxSpans) break;
 
                 w.WriteStartObject();
-                w.WriteString("t", ToToken(e.Type));
-                w.WriteNumber("o", e.Offset);
-                w.WriteNumber("l", e.Length);
+                w.WriteString("type", ToToken(e.Type));
+                w.WriteNumber("offset", e.Offset);
+                w.WriteNumber("length", e.Length);
                 // Only text_link carries its own target; everything else styles the text in place.
-                if (!string.IsNullOrEmpty(e.Url)) w.WriteString("u", e.Url);
+                if (!string.IsNullOrEmpty(e.Url)) w.WriteString("url", e.Url);
                 w.WriteEndObject();
 
                 count++;
