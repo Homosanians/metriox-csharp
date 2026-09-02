@@ -67,7 +67,20 @@ public static class TelegramEventIdentity
 
     public static string ShippingQuery(string queryId) => $"tg:sq:{queryId}";
 
+    /// <summary>
+    /// The per-MESSAGE reaction totals snapshot, i.e. <c>message_reaction_count</c>. One key per message,
+    /// which is correct for an aggregate and wrong for an individual reactor -- see
+    /// <see cref="BotMessageReaction"/>.
+    /// </summary>
     public static string Reactions(long chatId, long messageId) => $"tg:react:{chatId}:{messageId}";
+
+    /// <summary>
+    /// One PERSON's reaction to one message. The reactor is part of the identity because each reactor is
+    /// a distinct event: without them in the key, every reactor on a message collapses onto a single
+    /// event_id and all but one is silently discarded by the ReplacingMergeTree.
+    /// </summary>
+    public static string BotMessageReaction(long chatId, long messageId, long reactorId)
+        => $"tg:botreact:{chatId}:{messageId}:{reactorId}";
 
     public static string PollVote(long chatId, string pollId) => $"tg:pollvote:{chatId}:{pollId}";
 
@@ -95,7 +108,22 @@ public static class TelegramEventIdentity
         if (u.ChosenInlineResult is { } cir) return ChosenInlineResult(cir.From.Id, cir.ResultId);
         if (u.PreCheckoutQuery is { } pcq) return PreCheckoutQuery(pcq.Id);
         if (u.ShippingQuery is { } sq) return ShippingQuery(sq.Id);
-        if (u.MessageReaction is { } mr) return Reactions(mr.Chat.Id, mr.MessageId);
+        if (u.MessageReaction is { } mr)
+        {
+            // DATA LOSS if this keys per message. `message_reaction` is a PER-REACTOR update -- mr.User
+            // is the person who reacted -- so `tg:react:{chat}:{message}` gave every reactor on a message
+            // the same deterministic event_id, and the ReplacingMergeTree kept exactly one of them. On a
+            // post with fifty reactions, forty-nine were thrown away, with nothing logged and no way to
+            // tell from the data that anyone was missing.
+            //
+            // An anonymous channel reaction reports ActorChat instead of User; that identifies the acting
+            // party just as well. With neither, there is no reactor to key on and the caller's update-id
+            // fallback is the honest answer -- better a producer-scoped key than a wrong shared one.
+            var reactorId = mr.User?.Id ?? mr.ActorChat?.Id;
+            return reactorId is { } id
+                ? BotMessageReaction(mr.Chat.Id, mr.MessageId, id)
+                : null;
+        }
 
         if (u.PollAnswer is { } pa)
         {
