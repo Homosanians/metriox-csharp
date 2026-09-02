@@ -20,7 +20,13 @@ public sealed class BufferedBotEventSender : IAsyncDisposable
     private readonly Action<string>? _log;
     private readonly Action<Exception, string>? _logError;
 
-    private readonly Channel<BotEvent> _channel;
+    /// <summary>
+    /// One event and, when the update disclosed it, who caused it. They travel together through the
+    /// buffer because they are sent together: the batch's user list must describe that batch.
+    /// </summary>
+    private readonly record struct QueuedItem(BotEvent Event, BotUserSnapshot? User);
+
+    private readonly Channel<QueuedItem> _channel;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _pumpTask;
 
@@ -35,7 +41,7 @@ public sealed class BufferedBotEventSender : IAsyncDisposable
         _log = log;
         _logError = logError;
 
-        _channel = Channel.CreateBounded<BotEvent>(new BoundedChannelOptions(_opt.Capacity)
+        _channel = Channel.CreateBounded<QueuedItem>(new BoundedChannelOptions(_opt.Capacity)
         {
             FullMode = BoundedChannelFullMode.DropOldest,
             SingleReader = true,
@@ -45,16 +51,28 @@ public sealed class BufferedBotEventSender : IAsyncDisposable
         _pumpTask = Task.Run(() => PumpAsync(_cts.Token));
     }
 
-    public bool TryEnqueue(BotEvent? e)
+    public bool TryEnqueue(BotEvent? e) => TryEnqueue(e, user: null);
+
+    /// <summary>
+    /// Queues an event together with the identity of the person who caused it.
+    /// </summary>
+    /// <param name="user">
+    /// Who acted, from <c>TelegramUserSnapshotExtractor.From(update)</c>. Null is accepted and means
+    /// "this update named nobody" — the event is still queued. Passing it is what stops the person
+    /// showing up in Metriox as a bare numeric id; see <see cref="BotUserSnapshot"/>.
+    /// </param>
+    public bool TryEnqueue(BotEvent? e, BotUserSnapshot? user)
     {
         if (e is null) return false;
 
-        if (_channel.Writer.TryWrite(e))
+        var item = new QueuedItem(e, user);
+
+        if (_channel.Writer.TryWrite(item))
             return true;
-        
+
         if (_channel.Reader.TryRead(out _))
         {
-            _channel.Writer.TryWrite(e);
+            _channel.Writer.TryWrite(item);
             return false;
         }
 
@@ -64,7 +82,7 @@ public sealed class BufferedBotEventSender : IAsyncDisposable
     private async Task PumpAsync(CancellationToken ct)
     {
         var reader = _channel.Reader;
-        var buffer = new List<BotEvent>();
+        var buffer = new List<QueuedItem>();
         var nextFlush = DateTimeOffset.UtcNow + _opt.FlushInterval;
 
         try
@@ -117,7 +135,7 @@ public sealed class BufferedBotEventSender : IAsyncDisposable
         }
     }
 
-    private async Task FlushAsync(List<BotEvent> buffer, CancellationToken ct)
+    private async Task FlushAsync(List<QueuedItem> buffer, CancellationToken ct)
     {
         while (buffer.Count > 0 && !ct.IsCancellationRequested)
         {
@@ -131,7 +149,7 @@ public sealed class BufferedBotEventSender : IAsyncDisposable
         }
     }
 
-    private async Task<bool> TrySendAsync(List<BotEvent> batch, CancellationToken ct)
+    private async Task<bool> TrySendAsync(List<QueuedItem> batch, CancellationToken ct)
     {
         Exception? last = null;
 
@@ -141,12 +159,13 @@ public sealed class BufferedBotEventSender : IAsyncDisposable
             {
                 var req = new BotEventsRequest
                 {
-                    Events = batch
+                    Events = batch.ConvertAll(x => x.Event),
+                    Users = DistinctUsers(batch)
                 };
 
                 await _transport.SendTelegram(req, ct);
-                
-                _log?.Invoke($"Sent {req.Events.Count} events.");
+
+                _log?.Invoke($"Sent {req.Events.Count} events, {req.Users?.Count ?? 0} users.");
                 _log?.Invoke($"Sender opts: Capacity={_opt.Capacity}, BatchSize={_opt.BatchSize}, FlushInterval={_opt.FlushInterval}");
 
                 
@@ -170,6 +189,31 @@ public sealed class BufferedBotEventSender : IAsyncDisposable
             _logError?.Invoke(last, "Send failed permanently.");
 
         return false;
+    }
+
+    /// <summary>
+    /// One entry per person in the batch, latest sighting winning.
+    ///
+    /// <para>A chatty user appears on every event they caused; sending twenty identical copies of their
+    /// name would be twenty rows for the server to write and pay for. The latest one wins because
+    /// within a single batch it is the freshest: someone who changed their @username mid-batch must not
+    /// be recorded under the old one.</para>
+    /// </summary>
+    private static List<BotUserSnapshot>? DistinctUsers(List<QueuedItem> batch)
+    {
+        Dictionary<long, BotUserSnapshot>? byId = null;
+
+        foreach (var item in batch)
+        {
+            if (item.User is null) continue;
+
+            byId ??= new Dictionary<long, BotUserSnapshot>();
+            byId[item.User.TelegramUserId] = item.User;
+        }
+
+        // Null rather than an empty list: the field is omitted from the payload entirely when this
+        // batch told us nothing about anybody.
+        return byId is null ? null : new List<BotUserSnapshot>(byId.Values);
     }
 
     public async ValueTask DisposeAsync()
