@@ -1,4 +1,4 @@
-﻿using Metriox.SDK.Transport.Contracts;
+using Metriox.SDK.Transport.Contracts;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -361,10 +361,26 @@ public sealed class TelegramUpdateToBotEventMapper
                 eventName = "poll_answer";
 
                 eventDate = now;
-                platformUserId = pa.User.Id.ToString(CultureInfo.InvariantCulture);
+
+                // pa.User is NULLABLE, and dereferencing it threw. An anonymous vote in a channel poll
+                // reports VoterChat and no User at all, so `pa.User.Id` was a NullReferenceException on
+                // a perfectly ordinary Telegram update -- taking out the whole update, not just this
+                // property. Found by a test written for the chat-id fix below, not by anyone noticing.
+                platformUserId = (pa.User?.Id ?? pa.VoterChat?.Id)?.ToString(CultureInfo.InvariantCulture);
 
                 propsString["tg.poll_id"] = pa.PollId;
                 propsLong["tg.option_count"] = pa.OptionIds?.Length ?? 0;
+
+                // The voter's chat, which is the coordinate the server pairs a vote on. Its absence was
+                // the ONLY thing keeping poll votes double-billed for a bot connected both by token and
+                // through this SDK: the two producers already agreed on the key's shape, but the server
+                // derives it from $tg and this side never sent the chat.
+                //
+                // An anonymous vote in a channel poll reports VoterChat instead of User -- so the voter's
+                // chat is not always the voter's user id, and preferring VoterChat is what makes the two
+                // producers agree rather than merely both emit something.
+                if ((pa.VoterChat?.Id ?? pa.User?.Id) is { } voterChatId)
+                    propsLong["tg.chat_id"] = voterChatId;
 
                 break;
             }
