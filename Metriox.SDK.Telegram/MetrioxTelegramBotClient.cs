@@ -75,7 +75,12 @@ public sealed class MetrioxTelegramBotClient : ITelegramBotClient
             // A send with no chat is not something a transcript can place.
             if (sent.Chat is null) return;
 
-            _sender.TryEnqueue(TelegramOutgoingMessageMapper.ToBotEvent(sent, _platformBotId));
+            // The recipient of a private-chat send is a person, and the chat object names them. For a
+            // bot whose users mostly tap buttons and say nothing, this is often the only place their
+            // name is ever visible to us. Groups and channels return null — see OfPrivateChat.
+            _sender.TryEnqueue(
+                TelegramOutgoingMessageMapper.ToBotEvent(sent, _platformBotId),
+                TelegramUserSnapshotExtractor.OfPrivateChat(sent.Chat));
         }
         catch (Exception ex)
         {
