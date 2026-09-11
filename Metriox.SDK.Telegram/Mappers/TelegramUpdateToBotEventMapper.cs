@@ -242,6 +242,17 @@ public sealed class TelegramUpdateToBotEventMapper
 
                     // optional text of message being interacted with
                     text = cq.Message.Text;
+
+                    // The keyboard Telegram hands back here is the one that was on screen when the button
+                    // was pressed, so the label is a lookup rather than a correlation. Metriox can also
+                    // reconstruct it from the keyboards it recorded for this message id, but not reliably
+                    // on this path: an edited message keeps its id, and ingest stamps one clock reading per
+                    // HTTP request, so a press and the edit it triggered are indistinguishable in time.
+                    // Optional by design — see InlineKeyboardSerializer.FindLabel — and its absence simply
+                    // leaves that reconstruction to do the work.
+                    var pressed = InlineKeyboardSerializer.FindLabel(cq.Message.ReplyMarkup, cq.Data);
+                    if (!string.IsNullOrEmpty(pressed))
+                        propsString["tg.callback_button_text"] = pressed;
                 }
                 else
                 {
