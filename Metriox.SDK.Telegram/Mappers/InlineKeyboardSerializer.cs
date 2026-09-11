@@ -63,6 +63,50 @@ public static class InlineKeyboardSerializer
         return buttons.Count == 0 ? null : JsonSerializer.Serialize(buttons, Json);
     }
 
+    /// <summary>
+    /// Label of the button carrying <paramref name="callbackData"/>, or <c>null</c> when the markup does
+    /// not offer it.
+    ///
+    /// <para><b>Why a press should answer this itself.</b> Metriox can reconstruct the label server-side by
+    /// matching the payload against the keyboards it has recorded for that message — but a message keeps its
+    /// id across an edit, so a bot that navigates by editing one message in place gives that id a whole
+    /// sequence of keyboards, and picking the right element means knowing which one was on screen when the
+    /// press happened. On the Bot-API path that ordering is not recoverable: the ingest endpoint stamps one
+    /// clock reading per HTTP request and copies it to every event in the batch, so a press and the edit it
+    /// triggered — milliseconds apart, and usually in the same POST — are indistinguishable in time.</para>
+    ///
+    /// <para>Telegram removes the need to guess. <c>callback_query.message.reply_markup</c> is the keyboard
+    /// exactly as the user saw it, so the answer is a lookup rather than a correlation. Both that field and
+    /// <c>callback_query.message</c> are optional — absent for inline-mode buttons and for messages Telegram
+    /// no longer treats as accessible — so a <c>null</c> here is normal and simply leaves Metriox to fall
+    /// back to its own reconstruction.</para>
+    ///
+    /// <para>Matching is ordinal and case-sensitive, matching how Metriox compares the stored payload.</para>
+    /// </summary>
+    public static string? FindLabel(InlineKeyboardMarkup? markup, string? callbackData)
+    {
+        if (markup?.InlineKeyboard is null || string.IsNullOrEmpty(callbackData))
+            return null;
+
+        foreach (var row in markup.InlineKeyboard)
+        {
+            if (row is null)
+                continue;
+
+            foreach (var b in row)
+            {
+                if (b is null || !string.Equals(b.CallbackData, callbackData, StringComparison.Ordinal))
+                    continue;
+
+                // A blank label is nothing to show: leave it null so the transcript falls back to the
+                // payload rather than rendering an empty button name.
+                return string.IsNullOrWhiteSpace(b.Text) ? null : b.Text;
+            }
+        }
+
+        return null;
+    }
+
     private sealed record Button(
         [property: JsonPropertyName("text")] string Text,
         [property: JsonPropertyName("callback_data")] string? Data = null,
